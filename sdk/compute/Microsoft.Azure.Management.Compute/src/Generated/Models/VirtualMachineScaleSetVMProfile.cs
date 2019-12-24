@@ -56,13 +56,18 @@ namespace Microsoft.Azure.Management.Compute.Models
         /// &lt;br&gt;&lt;br&gt; Minimum api-version: 2015-06-15</param>
         /// <param name="priority">Specifies the priority for the virtual
         /// machines in the scale set. &lt;br&gt;&lt;br&gt;Minimum api-version:
-        /// 2017-10-30-preview. Possible values include: 'Regular',
-        /// 'Low'</param>
+        /// 2017-10-30-preview. Possible values include: 'Regular', 'Low',
+        /// 'Spot'</param>
         /// <param name="evictionPolicy">Specifies the eviction policy for
-        /// virtual machines in a low priority scale set.
+        /// virtual machines in a Azure Spot scale set.
         /// &lt;br&gt;&lt;br&gt;Minimum api-version: 2017-10-30-preview.
         /// Possible values include: 'Deallocate', 'Delete'</param>
-        public VirtualMachineScaleSetVMProfile(VirtualMachineScaleSetOSProfile osProfile = default(VirtualMachineScaleSetOSProfile), VirtualMachineScaleSetStorageProfile storageProfile = default(VirtualMachineScaleSetStorageProfile), VirtualMachineScaleSetNetworkProfile networkProfile = default(VirtualMachineScaleSetNetworkProfile), DiagnosticsProfile diagnosticsProfile = default(DiagnosticsProfile), VirtualMachineScaleSetExtensionProfile extensionProfile = default(VirtualMachineScaleSetExtensionProfile), string licenseType = default(string), string priority = default(string), string evictionPolicy = default(string))
+        /// <param name="billingProfile">Specifies the billing related details
+        /// of a Azure Spot VMSS. &lt;br&gt;&lt;br&gt;Minimum api-version:
+        /// 2019-03-01.</param>
+        /// <param name="scheduledEventsProfile">Specifies Scheduled Event
+        /// related configurations.</param>
+        public VirtualMachineScaleSetVMProfile(VirtualMachineScaleSetOSProfile osProfile = default(VirtualMachineScaleSetOSProfile), VirtualMachineScaleSetStorageProfile storageProfile = default(VirtualMachineScaleSetStorageProfile), VirtualMachineScaleSetNetworkProfile networkProfile = default(VirtualMachineScaleSetNetworkProfile), DiagnosticsProfile diagnosticsProfile = default(DiagnosticsProfile), VirtualMachineScaleSetExtensionProfile extensionProfile = default(VirtualMachineScaleSetExtensionProfile), string licenseType = default(string), string priority = default(string), string evictionPolicy = default(string), BillingProfile billingProfile = default(BillingProfile), ScheduledEventsProfile scheduledEventsProfile = default(ScheduledEventsProfile))
         {
             OsProfile = osProfile;
             StorageProfile = storageProfile;
@@ -72,6 +77,8 @@ namespace Microsoft.Azure.Management.Compute.Models
             LicenseType = licenseType;
             Priority = priority;
             EvictionPolicy = evictionPolicy;
+            BillingProfile = billingProfile;
+            ScheduledEventsProfile = scheduledEventsProfile;
             CustomInit();
         }
 
@@ -137,19 +144,34 @@ namespace Microsoft.Azure.Management.Compute.Models
         /// <summary>
         /// Gets or sets specifies the priority for the virtual machines in the
         /// scale set. &amp;lt;br&amp;gt;&amp;lt;br&amp;gt;Minimum api-version:
-        /// 2017-10-30-preview. Possible values include: 'Regular', 'Low'
+        /// 2017-10-30-preview. Possible values include: 'Regular', 'Low',
+        /// 'Spot'
         /// </summary>
         [JsonProperty(PropertyName = "priority")]
         public string Priority { get; set; }
 
         /// <summary>
         /// Gets or sets specifies the eviction policy for virtual machines in
-        /// a low priority scale set.
-        /// &amp;lt;br&amp;gt;&amp;lt;br&amp;gt;Minimum api-version:
-        /// 2017-10-30-preview. Possible values include: 'Deallocate', 'Delete'
+        /// a Azure Spot scale set. &amp;lt;br&amp;gt;&amp;lt;br&amp;gt;Minimum
+        /// api-version: 2017-10-30-preview. Possible values include:
+        /// 'Deallocate', 'Delete'
         /// </summary>
         [JsonProperty(PropertyName = "evictionPolicy")]
         public string EvictionPolicy { get; set; }
+
+        /// <summary>
+        /// Gets or sets specifies the billing related details of a Azure Spot
+        /// VMSS. &amp;lt;br&amp;gt;&amp;lt;br&amp;gt;Minimum api-version:
+        /// 2019-03-01.
+        /// </summary>
+        [JsonProperty(PropertyName = "billingProfile")]
+        public BillingProfile BillingProfile { get; set; }
+
+        /// <summary>
+        /// Gets or sets specifies Scheduled Event related configurations.
+        /// </summary>
+        [JsonProperty(PropertyName = "scheduledEventsProfile")]
+        public ScheduledEventsProfile ScheduledEventsProfile { get; set; }
 
         /// <summary>
         /// Validate the object.

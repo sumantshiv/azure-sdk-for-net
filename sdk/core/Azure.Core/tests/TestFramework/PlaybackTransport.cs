@@ -24,7 +24,7 @@ namespace Azure.Core.Testing
             _random = random;
         }
 
-        public override void Process(HttpPipelineMessage message)
+        public override void Process(HttpMessage message)
         {
             // Some tests will check if the Request Content is being read (to
             // verify their Progress handling) so we'll just copy it to a
@@ -42,7 +42,7 @@ namespace Azure.Core.Testing
             message.Response = GetResponse(_session.Lookup(message.Request, _matcher));
         }
 
-        public override async Task ProcessAsync(HttpPipelineMessage message)
+        public override async ValueTask ProcessAsync(HttpMessage message)
         {
             // Some tests will check if the Request Content is being read (to
             // verify their Progress handling) so we'll just copy it to a
@@ -77,12 +77,12 @@ namespace Azure.Core.Testing
         {
             var response = new MockResponse(recordEntry.StatusCode);
             // TODO: Use non-seekable stream
-            if (recordEntry.ResponseBody != null)
+            if (recordEntry.Response.Body != null)
             {
-                response.ContentStream = new MemoryStream(recordEntry.ResponseBody);
+                response.ContentStream = new MemoryStream(recordEntry.Response.Body);
             }
 
-            foreach (KeyValuePair<string, string[]> responseHeader in recordEntry.ResponseHeaders)
+            foreach (KeyValuePair<string, string[]> responseHeader in recordEntry.Response.Headers)
             {
                 foreach (string value in responseHeader.Value)
                 {

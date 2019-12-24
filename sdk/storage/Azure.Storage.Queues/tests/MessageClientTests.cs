@@ -1,6 +1,5 @@
 ﻿// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License. See License.txt in the project root for
-// license information.
+// Licensed under the MIT License.
 
 using System;
 using System.Linq;
@@ -12,11 +11,10 @@ using NUnit.Framework;
 
 namespace Azure.Storage.Queues.Test
 {
-    [TestFixture]
     public class MessageClientTests : QueueTestBase
     {
-        public MessageClientTests()
-            : base(/* Use RecordedTestMode.Record here to re-record just these tests */)
+        public MessageClientTests(bool async)
+            : base(async, null /* RecordedTestMode.Record /* to re-record */)
         {
         }
 
@@ -24,33 +22,29 @@ namespace Azure.Storage.Queues.Test
         public async Task EnqueueAsync()
         {
             // Arrange
-            using (this.GetNewQueue(out var queue))
-            {
-                // Act
-                var messages = this.InstrumentClient(queue.GetMessagesClient());
-                var response = await messages.EnqueueAsync(
-                    messageText: this.GetNewString(),
-                    visibilityTimeout: new TimeSpan(0, 0, 1),
-                    timeToLive: new TimeSpan(1, 0, 0));
+            await using DisposingQueue test = await GetTestQueueAsync();
 
-                // Assert
-                Assert.AreEqual(1, response.Value.Count());
-            }
+            // Act
+            Response<Models.SendReceipt> response = await test.Queue.SendMessageAsync(
+                messageText: GetNewString(),
+                visibilityTimeout: new TimeSpan(0, 0, 1),
+                timeToLive: new TimeSpan(1, 0, 0));
+
+            // Assert
+            Assert.NotNull(response.Value);
         }
 
         [Test]
         public async Task EnqueueAsync_Min()
         {
             // Arrange
-            using (this.GetNewQueue(out var queue))
-            {
-                // Act
-                var messages = this.InstrumentClient(queue.GetMessagesClient());
-                var response = await messages.EnqueueAsync(String.Empty);
+            await using DisposingQueue test = await GetTestQueueAsync();
 
-                // Assert
-                Assert.AreEqual(1, response.Value.Count());
-            }
+            // Act
+            Response<Models.SendReceipt> response = await test.Queue.SendMessageAsync(string.Empty);
+
+            // Assert
+            Assert.NotNull(response.Value);
         }
 
         // Note that this test intentionally does not call queue.CreateAsync()
@@ -58,13 +52,13 @@ namespace Azure.Storage.Queues.Test
         public async Task EnqueueAsync_Error()
         {
             // Arrange
-            var queueName = this.GetNewQueueName();
-            var service = this.GetServiceClient_SharedKey();
-            var queue = this.InstrumentClient(service.GetQueueClient(queueName));
+            var queueName = GetNewQueueName();
+            QueueServiceClient service = GetServiceClient_SharedKey();
+            QueueClient queue = InstrumentClient(service.GetQueueClient(queueName));
 
             // Act
-            await TestHelper.AssertExpectedExceptionAsync<StorageRequestFailedException>(
-                this.InstrumentClient(queue.GetMessagesClient()).EnqueueAsync(String.Empty),
+            await TestHelper.AssertExpectedExceptionAsync<RequestFailedException>(
+                queue.SendMessageAsync(string.Empty),
                 actualException => Assert.AreEqual("QueueNotFound", actualException.ErrorCode));
         }
 
@@ -72,40 +66,36 @@ namespace Azure.Storage.Queues.Test
         public async Task DequeueAsync()
         {
             // Arrange
-            using (this.GetNewQueue(out var queue))
-            {
-                var messages = this.InstrumentClient(queue.GetMessagesClient());
-                await messages.EnqueueAsync(this.GetNewString());
-                await messages.EnqueueAsync(this.GetNewString());
-                await messages.EnqueueAsync(this.GetNewString());
+            await using DisposingQueue test = await GetTestQueueAsync();
 
-                // Act
-                var response = await messages.DequeueAsync(
-                    maxMessages: 2,
-                    visibilityTimeout: new TimeSpan(1, 0, 0));
+            await test.Queue.SendMessageAsync(GetNewString());
+            await test.Queue.SendMessageAsync(GetNewString());
+            await test.Queue.SendMessageAsync(GetNewString());
 
-                // Assert
-                Assert.AreEqual(2, response.Value.Count());
-            }
+            // Act
+            Response<Models.QueueMessage[]> response = await test.Queue.ReceiveMessagesAsync(
+                maxMessages: 2,
+                visibilityTimeout: new TimeSpan(1, 0, 0));
+
+            // Assert
+            Assert.AreEqual(2, response.Value.Count());
         }
 
         [Test]
         public async Task DequeueAsync_Min()
         {
             // Arrange
-            using (this.GetNewQueue(out var queue))
-            {
-                var messages = this.InstrumentClient(queue.GetMessagesClient());
-                await messages.EnqueueAsync(this.GetNewString());
-                await messages.EnqueueAsync(this.GetNewString());
-                await messages.EnqueueAsync(this.GetNewString());
+            await using DisposingQueue test = await GetTestQueueAsync();
 
-                // Act
-                var response = await messages.DequeueAsync();
+            await test.Queue.SendMessageAsync(GetNewString());
+            await test.Queue.SendMessageAsync(GetNewString());
+            await test.Queue.SendMessageAsync(GetNewString());
 
-                // Assert
-                Assert.AreEqual(1, response.Value.Count());
-            }
+            // Act
+            Response<Models.QueueMessage[]> response = await test.Queue.ReceiveMessagesAsync();
+
+            // Assert
+            Assert.AreEqual(1, response.Value.Count());
         }
 
         // Note that this test intentionally does not call queue.CreateAsync()
@@ -113,14 +103,13 @@ namespace Azure.Storage.Queues.Test
         public async Task DequeueAsync_Error()
         {
             // Arrange
-            var queueName = this.GetNewQueueName();
-            var service = this.GetServiceClient_SharedKey();
-            var queue = this.InstrumentClient(service.GetQueueClient(queueName));
-            var messages = this.InstrumentClient(queue.GetMessagesClient());
+            var queueName = GetNewQueueName();
+            QueueServiceClient service = GetServiceClient_SharedKey();
+            QueueClient queue = InstrumentClient(service.GetQueueClient(queueName));
 
             // Act
-            await TestHelper.AssertExpectedExceptionAsync<StorageRequestFailedException>(
-                messages.DequeueAsync(),
+            await TestHelper.AssertExpectedExceptionAsync<RequestFailedException>(
+                queue.ReceiveMessagesAsync(),
                 actualException => Assert.AreEqual("QueueNotFound", actualException.ErrorCode));
         }
 
@@ -128,38 +117,34 @@ namespace Azure.Storage.Queues.Test
         public async Task PeekAsync()
         {
             // Arrange
-            using (this.GetNewQueue(out var queue))
-            {
-                var messages = this.InstrumentClient(queue.GetMessagesClient());
-                await messages.EnqueueAsync(this.GetNewString());
-                await messages.EnqueueAsync(this.GetNewString());
-                await messages.EnqueueAsync(this.GetNewString());
+            await using DisposingQueue test = await GetTestQueueAsync();
 
-                // Act
-                var response = await messages.PeekAsync(maxMessages: 2);
+            await test.Queue.SendMessageAsync(GetNewString());
+            await test.Queue.SendMessageAsync(GetNewString());
+            await test.Queue.SendMessageAsync(GetNewString());
 
-                // Assert
-                Assert.AreEqual(2, response.Value.Count());
-            }
+            // Act
+            Response<Models.PeekedMessage[]> response = await test.Queue.PeekMessagesAsync(maxMessages: 2);
+
+            // Assert
+            Assert.AreEqual(2, response.Value.Count());
         }
 
         [Test]
         public async Task PeekAsync_Min()
         {
             // Arrange
-            using (this.GetNewQueue(out var queue))
-            {
-                var messages = this.InstrumentClient(queue.GetMessagesClient());
-                await messages.EnqueueAsync(this.GetNewString());
-                await messages.EnqueueAsync(this.GetNewString());
-                await messages.EnqueueAsync(this.GetNewString());
+            await using DisposingQueue test = await GetTestQueueAsync();
 
-                // Act
-                var response = await messages.PeekAsync();
+            await test.Queue.SendMessageAsync(GetNewString());
+            await test.Queue.SendMessageAsync(GetNewString());
+            await test.Queue.SendMessageAsync(GetNewString());
 
-                // Assert
-                Assert.AreEqual(1, response.Value.Count());
-            }
+            // Act
+            Response<Models.PeekedMessage[]> response = await test.Queue.PeekMessagesAsync();
+
+            // Assert
+            Assert.AreEqual(1, response.Value.Count());
         }
 
         // Note that this test intentionally does not call queue.CreateAsync()
@@ -167,14 +152,13 @@ namespace Azure.Storage.Queues.Test
         public async Task PeekAsync_Error()
         {
             // Arrange
-            var queueName = this.GetNewQueueName();
-            var service = this.GetServiceClient_SharedKey();
-            var queue = this.InstrumentClient(service.GetQueueClient(queueName));
-            var messages = this.InstrumentClient(queue.GetMessagesClient());
+            var queueName = GetNewQueueName();
+            QueueServiceClient service = GetServiceClient_SharedKey();
+            QueueClient queue = InstrumentClient(service.GetQueueClient(queueName));
 
             // Act
-            await TestHelper.AssertExpectedExceptionAsync<StorageRequestFailedException>(
-                messages.PeekAsync(),
+            await TestHelper.AssertExpectedExceptionAsync<RequestFailedException>(
+                queue.PeekMessagesAsync(),
                 actualException => Assert.AreEqual("QueueNotFound", actualException.ErrorCode));
         }
 
@@ -182,19 +166,17 @@ namespace Azure.Storage.Queues.Test
         public async Task ClearAsync()
         {
             // Arrange
-            using (this.GetNewQueue(out var queue))
-            {
-                var messages = this.InstrumentClient(queue.GetMessagesClient());
-                await messages.EnqueueAsync(this.GetNewString());
-                await messages.EnqueueAsync(this.GetNewString());
-                await messages.EnqueueAsync(this.GetNewString());
+            await using DisposingQueue test = await GetTestQueueAsync();
 
-                // Act
-                var response = await messages.ClearAsync();
+            await test.Queue.SendMessageAsync(GetNewString());
+            await test.Queue.SendMessageAsync(GetNewString());
+            await test.Queue.SendMessageAsync(GetNewString());
 
-                // Assert
-                Assert.IsNotNull(response.Headers.RequestId);
-            }
+            // Act
+            Response response = await test.Queue.ClearMessagesAsync();
+
+            // Assert
+            Assert.IsNotNull(response.Headers.RequestId);
         }
 
         // Note that this test intentionally does not call queue.CreateAsync()
@@ -202,14 +184,13 @@ namespace Azure.Storage.Queues.Test
         public async Task ClearAsync_Error()
         {
             // Arrange
-            var queueName = this.GetNewQueueName();
-            var service = this.GetServiceClient_SharedKey();
-            var queue = this.InstrumentClient(service.GetQueueClient(queueName));
-            var messages = this.InstrumentClient(queue.GetMessagesClient());
+            var queueName = GetNewQueueName();
+            QueueServiceClient service = GetServiceClient_SharedKey();
+            QueueClient queue = InstrumentClient(service.GetQueueClient(queueName));
 
             // Act
-            await TestHelper.AssertExpectedExceptionAsync<StorageRequestFailedException>(
-                messages.ClearAsync(),
+            await TestHelper.AssertExpectedExceptionAsync<RequestFailedException>(
+                queue.ClearMessagesAsync(),
                 actualException => Assert.AreEqual("QueueNotFound", actualException.ErrorCode));
         }
     }
